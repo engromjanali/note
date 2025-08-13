@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:note/data/local/db_helper.dart';
 import 'package:flutter/material.dart';
 
@@ -7,6 +9,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  Timer? _blacksTimer;
   ///controllers
   TextEditingController titleController = TextEditingController();
   TextEditingController descController = TextEditingController();
@@ -16,8 +19,8 @@ class _HomePageState extends State<HomePage> {
 
 
 
-  double posX = 0;
-  double posY = 0;
+  double posX = -100;
+  double posY = -100;
 
   @override
   void initState() {
@@ -25,17 +28,52 @@ class _HomePageState extends State<HomePage> {
     dbRef = DBHelper.getInstance;
     getNotes();
     // Delay getting screen size until layout is built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final size = MediaQuery.of(context).size;
-      setState(() {
-        posX = (size.width - 56) / 2; // Center horizontally (56 = FAB size)
-        posY = size.height - 200; // Near bottom (adjust for AppBar & padding)
+    WidgetsBinding.instance.addPostFrameCallback((_)async {
+
+      // 1st way 
+      // while(true){
+      //   await Future.delayed(Duration(milliseconds: 500));
+      //   final size = MediaQuery.of(context).size;
+      //   if(size.height > 0 && mounted){
+      //     setState(() {
+      //       posX = (size.width - 56) / 2; // Center horizontally (56 = FAB size)
+      //       posY = size.height - 200; // Near bottom (adjust for AppBar & padding)
+      //       print(size.width);
+      //       print(posX);
+      //       print(size.height);
+      //       print(posY);
+      //     });
+      //     break;
+      //   }
+      // }
+
+      // 2nd way 
+      Timer? _blacksTimer;
+      _blacksTimer = Timer.periodic(Duration(seconds: 1), (_){
+        final size = MediaQuery.of(context).size;
+        if(size.height > 0 && mounted){
+          setState(() {
+            posX = (size.width - 56) / 2; // Center horizontally (56 = FAB size)
+            posY = size.height - 200; // Near bottom (adjust for AppBar & padding)
+            // print(size.width);
+            // print(posX);
+            // print(size.height);
+            // print(posY);
+          });
+
+          // i have cancle _blacksTimer even we have cancle in dispose method.
+          _blacksTimer?.cancel();
+          print("cancle");
+
+        }
       });
+
     });
   }
 
   @override
   void dispose() {
+    _blacksTimer?.cancel();
     titleController.dispose();
     descController.dispose();
     // TODO: implement dispose
@@ -49,6 +87,13 @@ class _HomePageState extends State<HomePage> {
     setState(() {});
   }
 
+
+  String getFirstWord(String input) {
+    if (input.trim().isEmpty) {
+      return "XYZ";
+    }
+    return input.trim().split(' ').first;
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -71,66 +116,76 @@ class _HomePageState extends State<HomePage> {
                 child: ListView.builder(
                   itemCount: allNotes.length,
                   itemBuilder: (_, index) {
-                    return Card(
-                      color: Colors.amber.shade100,
-                      child: ListTile(
-                        // leading: Text('${index+1}'),
-                        leading: Text('${allNotes[index][DBHelper.noteNo]}'),
-                        title: Text(allNotes[index][DBHelper.noteTitle]),
-                        subtitle: Text(allNotes[index][DBHelper.noteDesc]),
-                        trailing: SizedBox(
-                          width: 50,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text("",style: TextStyle(fontSize: 12),),
-                              InkWell(
-                                  onTap: () {
-                                    titleController.text = allNotes[index]
-                                    [DBHelper.noteTitle];
-                                    descController.text = allNotes[index]
-                                    [DBHelper.noteDesc];
-                                    print(DBHelper.noteNo);
-                                    // print(allNotes[index][DBHelper.noteNo]+DBHelper.noteNo);
-                                    showModalBottomSheet(
-                                      isScrollControlled: true,
-                                        context: context,
-                                        builder: (context) {
-                                          return Container(
-                                            padding: EdgeInsets.only(
-                                              bottom: MediaQuery.of(context).viewInsets.bottom, // return keyboard size if open, and it's valid for all widget what like keyboard 
-                                            ),
-                                            // height: 600, // if i use size here height we get fix height otherwise we gat what size has taken by child
-                                            child: SingleChildScrollView(
-                                              child: getBottomSheetWidget(
-                                                  isUpdate: true,
-                                                  sno: allNotes[index]
-                                                  [DBHelper.noteNo],
-                                              ),
-                                            ),
-                                          );
-                                        });
-                                  },
-                                  child: Icon(Icons.edit)),
-                              InkWell(
-                                onTap: ()async{
-                                  bool confirm =await showConfirmDialog(context: context, title: "Do you want to delete This note?");
-                                  if(confirm){
-                                    bool check = await dbRef!.deleteNote(sl_no: allNotes[index][DBHelper.noteNo]);
-                                    if(check){
-                                      getNotes();
-                                    }
-                                  }
-                                },
-                                child: Icon(
-                                  Icons.delete,
-                                  color: Colors.red,
-                                ),
+                    bool showDesc = false;
+                    return StatefulBuilder(
+                      builder: (context, setLocalState) {
+                        return Card(
+                          color: Colors.amber.shade100,
+                          child: ListTile(
+                            onTap: () {
+                              setLocalState(() {
+                                showDesc = !showDesc;
+                              });
+                            },
+                            // leading: Text('${index+1}'),
+                            leading: Text('${allNotes[index][DBHelper.noteNo]}'),
+                            title: allNotes[index][DBHelper.noteTitle] !=""? Text(allNotes[index][DBHelper.noteTitle]): Text(getFirstWord(allNotes[index][DBHelper.noteDesc])),
+                            subtitle: showDesc? Text(allNotes[index][DBHelper.noteDesc]) : null,
+                            trailing: SizedBox(
+                              width: 50,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  InkWell(
+                                      onTap: () {
+                                        titleController.text = allNotes[index]
+                                        [DBHelper.noteTitle];
+                                        descController.text = allNotes[index]
+                                        [DBHelper.noteDesc];
+                                        print(DBHelper.noteNo);
+                                        // print(allNotes[index][DBHelper.noteNo]+DBHelper.noteNo);
+                                        showModalBottomSheet(
+                                          isScrollControlled: true,
+                                            context: context,
+                                            builder: (context) {
+                                              return Container(
+                                                padding: EdgeInsets.only(
+                                                  bottom: MediaQuery.of(context).viewInsets.bottom, // return keyboard size if open, and it's valid for all widget what like keyboard 
+                                                ),
+                                                // height: 600, // if i use size here height we get fix height otherwise we gat what size has taken by child
+                                                child: SingleChildScrollView(
+                                                  child: getBottomSheetWidget(
+                                                      isUpdate: true,
+                                                      sno: allNotes[index]
+                                                      [DBHelper.noteNo],
+                                                  ),
+                                                ),
+                                              );
+                                            });
+                                      },
+                                      child: Icon(Icons.edit),
+                                    ),
+                                  InkWell(
+                                    onTap: ()async{
+                                      bool confirm =await showConfirmDialog(context: context, title: "Do you want to delete This note?");
+                                      if(confirm){
+                                        bool check = await dbRef!.deleteNote(sl_no: allNotes[index][DBHelper.noteNo]);
+                                        if(check){
+                                          getNotes();
+                                        }
+                                      }
+                                    },
+                                    child: Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      }
                     );
                   }),
               )
@@ -174,7 +229,7 @@ class _HomePageState extends State<HomePage> {
                 child: Icon(Icons.add),
               ),
             ),
-          )
+          ),
         ],
       ),
 
@@ -203,8 +258,9 @@ class _HomePageState extends State<HomePage> {
           TextField(
             controller: titleController,
             enabled: true,
+            autofocus: true,
+            textInputAction: TextInputAction.next,
             decoration: InputDecoration(
-              
                 hintText: "Enter title here",
                 label: Text('Title'),
                 focusedBorder: OutlineInputBorder(
