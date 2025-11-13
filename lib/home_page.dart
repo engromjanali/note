@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:note/data/local/db_helper.dart';
 import 'package:flutter/material.dart';
+import 'package:note/example.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -169,7 +170,7 @@ class _HomePageState extends State<HomePage> {
                                     onTap: ()async{
                                       bool confirm =await showConfirmDialog(context: context, title: "Do you want to delete This note?");
                                       if(confirm){
-                                        bool check = await dbRef!.deleteNote(sl_no: allNotes[index][DBHelper.noteNo]);
+                                        bool check = await dbRef!.deleteNote(slNo: allNotes[index][DBHelper.noteNo], );
                                         if(check){
                                           getNotes();
                                         }
@@ -304,7 +305,7 @@ class _HomePageState extends State<HomePage> {
                         if (title.isNotEmpty || desc.isNotEmpty) {
                           bool check = isUpdate
                               ? await dbRef!.updateNote(
-                              title: title, desc: desc, sl_no: sno)
+                              title: title, desc: desc, slNo: sno)
                               : await dbRef!
                               .addNote(title: title, desc: desc);
                           if (check) {
